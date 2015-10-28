@@ -9,10 +9,10 @@ import time, copy, os
 # config: array of 16 bytes describing 4 colors
 # board: array of 32 bytes, either 0 for absent, 1 for present or -1 for error
 # constants to tune the experiment
-debug = True # is this a debug run?
-dry = True # dry runs are without the board connected
+debug = False # is this a debug run?
+dry = False # dry runs are without the board connected
 port = 'com6' # change to 'com?' for windows
-port = '/dev/ttyACM0'
+#port = '/dev/ttyACM0'
 if debug:
 	logging.getLogger().setLevel(logging.DEBUG)
 else:
