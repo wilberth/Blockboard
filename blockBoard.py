@@ -9,9 +9,9 @@ import time, copy, os
 # config: array of 16 bytes describing 4 colors
 # board: array of 32 bytes, either 0 for absent, 1 for present or -1 for error
 # constants to tune the experiment
-debug = False # is this a debug run?
-dry = False # dry runs are without the board connected
-port = 'com6' # change to 'com?' for windows
+debug = True # is this a debug run?
+dry = True # dry runs are without the board connected
+port = '/dev/ttyUSB0' # change to 'com?' for windows
 #port = '/dev/ttyACM0'
 if debug:
 	logging.getLogger().setLevel(logging.DEBUG)
@@ -25,39 +25,48 @@ else:
 # iti = intertrial interval in seconds
 # feedback = should feedback about trial performance be given?
 
-nTrain = 6
+nTrain = 2 #amount of training trials (normally 6)
+ 
 
 nBlock = range(0,1)
 
-nTrials = 8
+nTrials = 8 #amount of experimental trials (normally 8)
 
 iti = 5
 
-feedback = True
+feedback = False # do you get feedback about your time after every trial? True / False
+
+ID = "Npilot21" #participant number 
 
 #p_r = 0.10 + 0.05 * dt/(0.5s)
+pNoiseFactor = 1  # if 1 Noise is on, if 0 Noise is off   ##### !!!!!! select condition here!!!! ########
 pNoiseMin = 0.10 # minimum chance of noise
-pNoiseMax = 0.50 # maximum chance of noise
-dtNoise   = 10.0 # (s) time delay that will lead to an increase of pNoise with 100%
+pNoiseMax = 0.40 # maximum chance of noise
+dtNoise   = 5.0 # (s) time delay that will lead to an increase of p with 100%
 
 # Setting the ID of the participant
 # Be sure that the ID is unique! Otherwise data will be stored in the same data file as the data if the other participant (no data will be lost)
 
-ID = "Ppilot11"
+#labels for the conditions in order to write them in the output
+Condition = "Noise"
+if pNoiseFactor ==0:
+    Condition = "Control"
+
+
 ########################################
 # creating the data file and saving it
 # data is stored in long format
 # data is stored in a .txt file using tab-delimiter ("\t")
 if ID+'_data.txt' not in os.listdir(os.getcwd()+"/data"):
 	data = open("data/"+ID+'_data.txt',"a")
-	saveList = ["ID", "Block", "blockTime","configNumber", "movementNumber", "configTime", "Color", "positionPick","positionPlace","Correct", "thinkTime", "movementTime", "noise", "\n"]
+	saveList = ["ID", "Block", "blockTime","configNumber", "movementNumber", "configTime", "Color", "positionPick","positionPlace","Correct", "thinkTime", "movementTime", "noise", "Condition","\n"]
 	saves = '\t'.join(saveList)
 	data.write(saves)
 	data.close()
 
 if ID+'_efData.txt' not in os.listdir(os.getcwd()+"/data"):
 	efData = open("data/"+ID+"_efData.txt", "a")
-	saveList2 = ["ID", "Block", "engagement","fatigue","pressure", "minduration", "meanduration", "\n"]
+	saveList2 = ["ID", "Block", "engagement","fatigue","pressure", "minduration", "meanduration","Condition", "\n"]
 	saves2 = '\t'.join(saveList2)
 	efData.write(saves2)
 	efData.close()
@@ -105,15 +114,20 @@ for y in (-0.75, -0.25, 0.25, 0.75):
 		i += 1
 
 # audio stimuli
-duration = 0.3 # (s)
-attenuation = 20.0 # dB (attenuation of correctSound compared to noiseSound)
+duration = 0.3 # (s) #300 ms is ok :)
+attenuation = 10.0 # dB (attenuation of correctSound compared to noiseSound)
 noise = np.random.uniform(low=-1.0, high=1.0, size=(int(44100*duration), 2))
 noiseSound   = sound.Sound(value=noise, secs=0.3, sampleRate=44100)
 noiseSound.setVolume(1.0) # maximum volume
+#noiseSound.play()
+print(noiseSound.getVolume())
 correctSound = sound.Sound(value='C', secs=duration, octave=3)
-correctSound.setVolume(10**(-attenuation/20)) # attenuation less than maximum
+correctSound.setVolume(0.01) # attenuation less than maximum
+#correctSound.play()
+print(correctSound.getVolume())
 wrongSound   = sound.Sound(value='C', secs=duration, octave=5)
-wrongSound.setVolume(10**(-attenuation/20)*0.5/0.7) # legacy
+wrongSound.setVolume(0.01) # legacy 
+#wrongSound.play()
 
 #functions
 # Function to draw .jpgs and wait for a response
@@ -137,7 +151,7 @@ def efQ(ID,block,durations):
 		win.flip()
 	engage = eQ.getRating()
 	
-	fQ = visual.RatingScale(win, scale = "Geef aan hoe moe je bent", labels = ("helemaal niet moe", "heel erg moe"),low = 0, high = 100, tickHeight = .0, mouseOnly = True, showValue = False, acceptText = "Accept")
+	fQ = visual.RatingScale(win, scale = "Hoe vermoeid voel je je op dit moment?", labels = ("helemaal niet", "heel erg"),low = 0, high = 100, tickHeight = .0, mouseOnly = True, showValue = False, acceptText = "Accept")
 	while fQ.noResponse:
 		fQ.draw()
 		win.flip()
@@ -151,7 +165,7 @@ def efQ(ID,block,durations):
 	
 	efData = open("data/"+ID+"_efData.txt", "a")
 	
-	saveList2 = [ID, str(block), str(engage),str(fatigue),str(pressure), str(min(durations)), str(sum(durations)/len(durations)),"\n"]
+	saveList2 = [ID, str(block), str(engage),str(fatigue),str(pressure), str(min(durations)), str(sum(durations)/len(durations)),Condition,"\n"]
 	saves2 = '\t'.join(saveList2)
 	efData.write(saves2)
 	efData.close()
@@ -415,7 +429,7 @@ def waitValidMove(board, sourceSide, sourceConfig, targetConfig, block, blockTim
 		correctSound.play() # this just indicates a correct correction, not a correct move
 		mN = mN + 1
 		data = open("data/"+ID+'_data.txt',"a")
-		saveList = [ID, str(block), str(time.time()-blockTimeref),str(configNum), str(mN), str(time.time()-configTimeref),colorNames[sourceConfig[s]], positionNames[s], positionNames[t],"FALSE",str(thinkTime), str(movetime), "\n"]
+		saveList = [ID, str(block), str(time.time()-blockTimeref),str(configNum), str(mN), str(time.time()-configTimeref),colorNames[sourceConfig[s]], positionNames[s], positionNames[t],"FALSE",str(thinkTime), str(movetime), Condition,"\n"]
 		saves = "\t".join(saveList)
 		data.write(saves)
 		data.close()
@@ -429,7 +443,7 @@ def waitValidMove(board, sourceSide, sourceConfig, targetConfig, block, blockTim
 			dt = 0
 		else:
 			dt = configTime - referenceDuration*mN/16
-			pNoise = np.clip(pNoiseMin + dt/dtNoise, pNoiseMin, pNoiseMax) # chance of noise
+			pNoise = pNoiseFactor*np.clip(pNoiseMin + dt/dtNoise, pNoiseMin, pNoiseMax) # chance of noise
 			bNoise = pNoise>np.random.uniform() # pNoise chance of True, 1-pNoise chance of False
 			logging.info('  dt={:.3f}, pNoise={:.3f}, noise={}'.format(dt, pNoise, bNoise))
 		logging.info('CORRECT MOVE: {} {} ({})-> {} {}'.
@@ -440,7 +454,7 @@ def waitValidMove(board, sourceSide, sourceConfig, targetConfig, block, blockTim
 
 		time.time()-blockTimeref
 		data = open("data/"+ID+'_data.txt',"a")		 
-		saveList = [ID, str(block), str(time.time()-blockTimeref),str(configNum), str(mN), str(configTime),colorNames[sourceConfig[s]], positionNames[s], positionNames[t],"TRUE",str(thinkTime), str(movetime), ("FALSE", "TRUE")[bNoise],"\n"]
+		saveList = [ID, str(block), str(time.time()-blockTimeref),str(configNum), str(mN), str(configTime),colorNames[sourceConfig[s]], positionNames[s], positionNames[t],"TRUE",str(thinkTime), str(movetime), ("FALSE", "TRUE")[bNoise],Condition,"\n"]
 		saves = "\t".join(saveList)
 		data.write(saves)
 		data.close()
@@ -507,13 +521,16 @@ def experiment():
 	
 	# show fastest training
 	referenceDuration = min(durations)
-	feedbackText = visual.TextStim(win, text="Fastest trial: {:.3f} s, press any key".format(referenceDuration))
+	feedbackText = visual.TextStim(win, text=" Snelste tijd: {:.3f} s, \n Roep nu de experimentleider".format(referenceDuration))
 	feedbackText.draw()
 	win.flip()
 	event.waitKeys()
 	
 	#showing post training instructions
-	instrDraw('preEx/')
+	if pNoiseFactor == 1:
+		instrDraw('preEx1/') #instructions for Noise Condition
+	else:
+		instrDraw('preEx0/') #instructions for Control Condition
 	win.flip()
 	core.wait(1)
 	
@@ -554,7 +571,7 @@ def experiment():
 
 		efQ(ID,block, durations)
 		# after block, show average time
-		feedbackText = visual.TextStim(win, text="Average trial time: {:.3f} s, press any key".format(sum(durations)/len(durations)))
+		feedbackText = visual.TextStim(win, text=" Gemiddelde trial tijd: {:.3f} s, \n Roep nu de experimentleider".format(sum(durations)/len(durations)))
 		feedbackText.draw()
 		win.flip()
 		event.waitKeys()
